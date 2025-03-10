@@ -1,5 +1,4 @@
-
-import Cookies from 'js-cookie'
+import Cookies from 'js-cookie';
 import CryptoJS from 'crypto-js';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -20,14 +19,10 @@ export const waitForElement = (selector, timeout = 3000) =>
   });
 
 export const retrieveCsrfToken = () => {
-
   const csrfToken = Cookies.get(process.env.REACT_APP_CSRF_TOKEN_COOKIE_NAME);
-
   if (!csrfToken) {
-      // Redirect to SignIn Page
-      window.location.href=process.env.REACT_APP_SIGNIN_ROUTE;
+    window.location.href = process.env.REACT_APP_SIGNIN_ROUTE;
   }
-
   return csrfToken;
 };
 
@@ -50,33 +45,38 @@ const secureFetch = async (url, options = {}) => {
   return response;
 };
 
-
 export const fetchCsrfToken = async () => {
   try {
-      const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/csrf-token`, {
-          method: 'GET',
-          credentials: 'include',
-      });
+    const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/csrf-token-fetch`, {
+      method: 'POST', // Changed to POST
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({}) // Empty body
+    });
 
-      if (!response.ok) {
-          throw new Error('Failed to retrieve CSRF token');
-      }
-
-      const { csrf_token } = await response.json();
-      return { csrfToken: csrf_token }; // Return as an object
-  } catch (error) {
+    if (!response.ok) {
       throw new Error('Failed to retrieve CSRF token');
+    }
+
+    const { csrf_token } = await response.json();
+    return { csrfToken: csrf_token };
+  } catch (error) {
+    throw new Error('Failed to retrieve CSRF token');
   }
 };
 
 export const fetchTeam = async () => {
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/team`, {
-    methon: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/team-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
   if (!response.ok) {
     throw new Error('Network response was not ok');
@@ -131,9 +131,8 @@ export const useTeamMembers = () => {
     error, 
     fetchMembers 
   };
-}
+};
 
-// Function to process project data based on the backend response structure
 const processProjects = (projects) => {
   return projects.map(project => ({
     id: project.id,
@@ -155,14 +154,12 @@ export const useProjects = () => {
     queryFn: async () => {
       const response = await fetchProjects(); 
       if (!response.success) {
-        
         throw new Error('Failed to fetch projects');
       }
       return processProjects(response.projects);
     },
     enabled: false,
   });
-
 
   const refreshProjects = () => {
     refetch();
@@ -214,7 +211,6 @@ export const useSelectedProject = () => {
     getSelectedProject
   };
 };
-
 
 export const createTeamMember = async (user) => {
   const csrfToken = retrieveCsrfToken();
@@ -280,7 +276,6 @@ export const useUpdateTeamMemberMutation = () => {
     mutationFn: updateTeamMember,
     onSuccess: () => {
       queryClient.invalidateQueries(['teamMembers']);
-      
     },
     onError: (error) => {
       throw new Error('Failed to update team member.');
@@ -295,15 +290,16 @@ export const useUpdateTeamMemberMutation = () => {
   };
 };
 
-
 export const fetchQuotes = async () => {
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/quotes`, {
-    method: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/quotes-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
       'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
   if (!response.ok) throw new Error('Failed to fetch quotes');
   return response.json();
@@ -321,17 +317,18 @@ const processQuotes = (quotes) => {
     quote_version: quote.quote_version || 'Unknown'
   }));
 };
+
 export const useQuotes = () => {
   const queryClient = useQueryClient();
 
   const { data: quotes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['quotes'],
     queryFn: async () => {
-        const response = await fetchQuotes(); 
-        if (!response.success) {
-          throw new Error('Failed to fetch quotes');
-        }
-        return processQuotes(response.quotes);
+      const response = await fetchQuotes(); 
+      if (!response.success) {
+        throw new Error('Failed to fetch quotes');
+      }
+      return processQuotes(response.quotes);
     },
     enabled: false, 
   });
@@ -378,14 +375,13 @@ export const useDeleteQuoteMutation = () => {
 
   const { mutate: deleteQuoteMutate, isLoading: isDeleting, isError, error } = useMutation({
     mutationFn: deleteQuote,
-    onSuccess:  async () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries(['quotes']);
       const response = await fetchQuotes(); 
-       if (!response.success) {
-         throw new Error('Failed to fetch quotes');
-       }
-
-       queryClient.setQueryData(['quotes'], processQuotes(response.quotes));
+      if (!response.success) {
+        throw new Error('Failed to fetch quotes');
+      }
+      queryClient.setQueryData(['quotes'], processQuotes(response.quotes));
     },
     onError: (error) => {
       throw new Error('Failed to delete quote.');
@@ -400,7 +396,6 @@ export const useDeleteQuoteMutation = () => {
   };
 };
 
-// Upvote a quote
 export const upvoteQuote = async ({quoteId, projectId, quoteVersion, voteType}) => {
   const csrfToken = retrieveCsrfToken();
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/quotes`, {
@@ -451,8 +446,6 @@ export const deleteUser = async (user) => {
   }
   return response.json();
 };
-//End of dashboard activities
-
 
 export const formatTimeAgo = (date) => {
   const now = new Date();
@@ -496,16 +489,14 @@ export const useNotifications = () => {
 
   const { data: notifications, isLoading, isError, error, refetch } = useQuery({
     queryKey,
-    queryFn:  () => {
-      const response = fetchNotifications(); 
-        if (!response.success) {
-          throw new Error('Failed to fetch notifications');
-        }
-
-        return processNotifications(response.notifications);
-      
+    queryFn: async () => { // Fixed syntax error
+      const response = await fetchNotifications(); 
+      if (!response.success) {
+        throw new Error('Failed to fetch notifications');
+      }
+      return processNotifications(response.notifications);
     },
-    enabled: false, // Fetch only when explicitly told to
+    enabled: false,
   });
 
   const refreshNotifications = async () => {
@@ -521,7 +512,6 @@ export const useNotifications = () => {
     return queryClient.getQueryData(['notifications']) || []; 
   };
 
-  
   return { 
     notifications, 
     isLoading, 
@@ -532,22 +522,21 @@ export const useNotifications = () => {
   };
 };
 
-// Fetch all notifications
 export const fetchNotifications = async () => {
-  // Retrieve CSRF token for secure API calls
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/notifications`, {
-    method: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/notifications-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
   if (!response.ok) throw new Error('Failed to fetch notifications');
   return response.json();
 };
 
-// Create a new notification
 export const createNotification = async (notificationData) => {
   const csrfToken = retrieveCsrfToken();
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/notifications`, {
@@ -563,7 +552,6 @@ export const createNotification = async (notificationData) => {
   return response.json();
 };
 
-// Mark all notifications as viewed
 export const updateNotifications = async () => {
   const csrfToken = retrieveCsrfToken();
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/notifications`, {
@@ -577,7 +565,6 @@ export const updateNotifications = async () => {
   return response.json();
 };
 
-// Delete specified notifications
 export const deleteNotifications = async (notificationIds) => {
   const csrfToken = retrieveCsrfToken();
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/notifications`, {
@@ -600,9 +587,7 @@ export const useDeleteNotificationsMutation = () => {
     mutationFn: deleteNotifications,
     onSuccess: async () => {
       queryClient.invalidateQueries(['notifications']);
-      
       queryClient.setQueryData(['notifications'], []);
-
       const response = await fetchNotifications(); 
       if (!response.success) {
         throw new Error('Failed to fetch notifications');
@@ -622,7 +607,6 @@ export const useDeleteNotificationsMutation = () => {
   };
 };
 
-// Create Notification
 export const useCreateNotificationMutation = () => {
   const queryClient = useQueryClient();
 
@@ -630,12 +614,10 @@ export const useCreateNotificationMutation = () => {
     mutationFn: createNotification,
     onSuccess: async () => {
       queryClient.invalidateQueries(['notifications']);
-      
       const response = await fetchNotifications(); 
       if (!response.success) {
         throw new Error('Failed to fetch notifications');
       }
-
       queryClient.setQueryData(['notifications'], processNotifications(response.notifications));
     },
     onError: (error) => {
@@ -646,7 +628,6 @@ export const useCreateNotificationMutation = () => {
   return { createNotificationMutate, isCreating, isError, error };
 };
 
-// Update Notifications (Mark as Viewed)
 export const useUpdateNotificationsMutation = () => {
   const queryClient = useQueryClient();
 
@@ -654,12 +635,10 @@ export const useUpdateNotificationsMutation = () => {
     mutationFn: updateNotifications,
     onSuccess: async () => {
       queryClient.invalidateQueries(['notifications']);
-
       const response = await fetchNotifications(); 
       if (!response.success) {
         throw new Error('Failed to fetch notifications');
       }
-
       queryClient.setQueryData(['notifications'], processNotifications(response.notifications));
     },
     onError: (error) => {
@@ -670,7 +649,6 @@ export const useUpdateNotificationsMutation = () => {
   return { updateNotificationsMutate, isUpdating, isError, error };
 };
 
-
 export const QuoteGenerationStatus = {
   BEGINNING: 'BEGINNING',
   ACTIVE: 'ACTIVE',
@@ -680,7 +658,6 @@ export const QuoteGenerationStatus = {
 export const useQuoteGenerationStatus = () => {
   const queryClient = useQueryClient();
 
-  // Function to get the current status
   const getQuoteGenerationStatus = () => {
     const currentStatus = queryClient.getQueryData(['quoteGenerationStatus']);
     if (currentStatus === undefined) {
@@ -689,7 +666,6 @@ export const useQuoteGenerationStatus = () => {
     return queryClient.getQueryData(['quoteGenerationStatus']);
   };
 
-  // Function to set the status
   const setQuoteGenerationStatus = (status) => {
     if (Object.values(QuoteGenerationStatus).includes(status)) {
       queryClient.setQueryData(['quoteGenerationStatus'], status);
@@ -704,7 +680,6 @@ export const useQuoteGenerationStatus = () => {
   };
 };
 
-
 export const useQuoteText = () => {
   const queryClient = useQueryClient();
 
@@ -713,16 +688,16 @@ export const useQuoteText = () => {
     queryFn: async () => {
       const currentQuoteText = queryClient.getQueryData(['quoteText']);
       if (!currentQuoteText) {
-        return ""; // Default to an empty string if no quote text found
+        return "";
       }
       return currentQuoteText;
     },
-    enabled: false, // Fetch only when explicitly told to
+    enabled: false,
   });
 
   const setQuoteText = (newText) => {
     queryClient.setQueryData(['quoteText'], newText);
-    refetch(); // Trigger a refetch to update the UI with new text
+    refetch();
   };
 
   const getQuoteText = () => {
@@ -739,8 +714,6 @@ export const useQuoteText = () => {
   };
 };
 
-
-
 export const useGeneratedQuoteId = () => {
   const queryClient = useQueryClient();
 
@@ -749,16 +722,16 @@ export const useGeneratedQuoteId = () => {
     queryFn: async () => {
       const currentQuoteId = queryClient.getQueryData(['generatedQuoteId']);
       if (!currentQuoteId) {
-        return null; // Default to null if no quote ID found
+        return null;
       }
       return currentQuoteId;
     },
-    enabled: false, // Fetch only when explicitly told to
+    enabled: false,
   });
 
   const setGeneratedQuoteId = (newId) => {
     queryClient.setQueryData(['generatedQuoteId'], newId);
-    refetch(); // Trigger a refetch to update the UI with new ID
+    refetch();
   };
 
   const getGeneratedQuoteId = () => {
@@ -774,7 +747,6 @@ export const useGeneratedQuoteId = () => {
     getGeneratedQuoteId
   };
 };
-
 
 export const useQuoteFiles = () => {
   const queryClient = useQueryClient();
@@ -816,7 +788,6 @@ export const useQuoteFiles = () => {
   };
 };
 
-
 export const useAdditionalInfo = () => {
   const queryClient = useQueryClient();
 
@@ -848,7 +819,7 @@ export const useAdditionalInfo = () => {
   const clearQuoteExtraInfo = () => {
     queryClient.setQueryData(['additionalInfo'], "");
     queryClient.setQueryData(['proposedChanges'], "");
-  }
+  };
 
   return { 
     additionalInfo, 
@@ -866,8 +837,6 @@ export const useAdditionalInfo = () => {
     clearQuoteExtraInfo
   };
 };
-
-//Start of admin sign up and registration features.
 
 export const generateQuoteStream = async (project, quoteFiles, additionalInfo, onChunkReceived) => {
   const csrfToken = retrieveCsrfToken();
@@ -899,13 +868,11 @@ export const generateQuoteStream = async (project, quoteFiles, additionalInfo, o
 
   const contentType = response.headers.get("content-type");
   if (contentType && contentType.includes("application/json")) {
-      const jsonData = await response.json();
-      
-      if (!jsonData.success)
-      {
-        throw new Error(jsonData.error || 'Failed to generate PDF');
-      }
-      return;
+    const jsonData = await response.json();
+    if (!jsonData.success) {
+      throw new Error(jsonData.error || 'Failed to generate PDF');
+    }
+    return;
   }
  
   const reader = response.body.getReader();
@@ -924,7 +891,7 @@ export const generateQuoteStream = async (project, quoteFiles, additionalInfo, o
           
           if (data.status === 'quote-id') {
             quoteId = data.text;
-            onChunkReceived({ text: '', status: 'quote-id', quoteId }); // Notify that quote ID is received
+            onChunkReceived({ text: '', status: 'quote-id', quoteId });
           } else if (data.status === 'error') {
             onChunkReceived({ text: data.text, status: 'error' });
             controller.abort();
@@ -937,21 +904,15 @@ export const generateQuoteStream = async (project, quoteFiles, additionalInfo, o
         }
       });
     }
-  }
-  catch (error) {
+  } catch (error) {
     if (error.name === 'AbortError') {
       //pass
-    } 
-    else 
-    {
+    } else {
       throw error;
     }
   }
-  
 };
 
-
-// Generate PDF
 export const generatePDF = async (quoteId) => {
   const csrfToken = retrieveCsrfToken();
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/generate-pdf`, {
@@ -961,20 +922,18 @@ export const generatePDF = async (quoteId) => {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      quoteId: quoteId // Send the quoteId to the backend
+      quoteId: quoteId
     }),
     credentials: 'include',
   });
 
   const contentType = response.headers.get("content-type");
   if (contentType && contentType.includes("application/json")) {
-      const jsonData = await response.json();
-      
-      if (!jsonData.success)
-      {
-        throw new Error(jsonData.error || 'Failed to generate PDF');
-      }
-      return;
+    const jsonData = await response.json();
+    if (!jsonData.success) {
+      throw new Error(jsonData.error || 'Failed to generate PDF');
+    }
+    return;
   }
 
   const blob = await response.blob();
@@ -988,14 +947,14 @@ export const usePdfUrl = () => {
     queryKey: ['pdfUrl'],
     queryFn: async () => {
       const currentPdfUrl = queryClient.getQueryData(['pdfUrl']);
-      return currentPdfUrl || ""; // Default to an empty string if no URL found
+      return currentPdfUrl || "";
     },
-    enabled: false, // Fetch only when explicitly told to
+    enabled: false,
   });
 
   const setPdfUrl = (newUrl) => {
     queryClient.setQueryData(['pdfUrl'], newUrl);
-    refetch(); // Trigger a refetch to update the UI with new URL
+    refetch();
   };
 
   const getPdfUrl = () => {
@@ -1012,16 +971,9 @@ export const usePdfUrl = () => {
   };
 };
 
-
-
 const encryptData = (data) => {
-  // Convert the data to a JSON string.
   const dataString = JSON.stringify(data);
-  
-  // Encrypt the data using AES.
-  // CryptoJS will internally generate a salt and use a key derivation method.
   const encrypted = CryptoJS.AES.encrypt(dataString, process.env.REACT_APP_SECRET_KEY).toString();
-  
   return encrypted;
 };
 
@@ -1032,19 +984,20 @@ const processAPIKeys = (data) => {
     value: key.key,  
     organisation_id: key.organisation_id,
     status: key.status,
-    created: new Date(key.created_at).toLocaleString() // Convert to a local string format, adjust as needed
+    created: new Date(key.created_at).toLocaleString()
   }));
 };
 
-// Fetch all API keys
 export const fetchAPIKeys = async () => {
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/api-keys`, {
-    method: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/api-keys-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
   if (!response.ok) {
     const errorData = await response.json();
@@ -1052,12 +1005,10 @@ export const fetchAPIKeys = async () => {
   }
 
   const data = await response.json();
-
   const processedAPIKeys = processAPIKeys(data);
   return processedAPIKeys;
 };
 
-// Create a new API key
 export const createAPIKey = async (apiKeyData) => {
   const csrfToken = retrieveCsrfToken();
   const encryptedData = encryptData({ apiKey: apiKeyData.value, name: apiKeyData.name });
@@ -1078,7 +1029,6 @@ export const createAPIKey = async (apiKeyData) => {
   return response.json();
 };
 
-// Update an API key
 export const updateAPIKey = async ({id, status}) => {
   const csrfToken = retrieveCsrfToken();
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/api-keys/${id}`, {
@@ -1097,7 +1047,6 @@ export const updateAPIKey = async ({id, status}) => {
   return response.json();
 };
 
-// Delete specified API keys
 export const deleteAPIKeys = async (apiKeyId) => {
   const csrfToken = retrieveCsrfToken();
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/api-keys`, {
@@ -1116,8 +1065,6 @@ export const deleteAPIKeys = async (apiKeyId) => {
   return response.json();
 };
 
-
-// API Keys Query
 export const useAPIKeys = () => {
   const queryClient = useQueryClient();
   const { data: apiKeys, isLoading, isError, error, refetch } = useQuery({
@@ -1127,7 +1074,6 @@ export const useAPIKeys = () => {
       if (!keys) {
         throw new Error('Failed to fetch API Keys');
       }
-      
       return keys;
     },
     enabled: true, 
@@ -1135,7 +1081,7 @@ export const useAPIKeys = () => {
 
   const setApiKeys = (newUrl) => {
     queryClient.setQueryData(['apiKeys'], newUrl);
-    refetch(); // Trigger a refetch to update the UI with new URL
+    refetch();
   };
 
   const getApiKeys = () => {
@@ -1144,8 +1090,7 @@ export const useAPIKeys = () => {
 
   const clearApiKeys = () => {
     queryClient.setQueryData(['apiKeys'], []);
-  }
-
+  };
 
   return { 
     apiKeys, 
@@ -1156,7 +1101,6 @@ export const useAPIKeys = () => {
     getApiKeys,
     clearApiKeys,
     refetch
-
   };
 };
 
@@ -1171,7 +1115,6 @@ export const useCreateAPIKeyMutation = () => {
   } = useMutation({
     mutationFn: createAPIKey,
     onSuccess: async () => {
-      // Invalidate queries so that any cached API keys are refreshed
       queryClient.invalidateQueries(['apiKeys']);
     },
     onError: (error) => {
@@ -1187,7 +1130,6 @@ export const useCreateAPIKeyMutation = () => {
   };
 };
 
-// Mutation for updating an API key
 export const useUpdateAPIKeyMutation = () => {
   const queryClient = useQueryClient();
 
@@ -1199,11 +1141,10 @@ export const useUpdateAPIKeyMutation = () => {
   } = useMutation({
     mutationFn: updateAPIKey,
     onSuccess: async () => {
-      // Invalidate queries so that any cached API keys are refreshed
       queryClient.invalidateQueries(['apiKeys']);
     },
     onError: (error) => {
-      throw new Error( error.message || 'Failed to update API key.');
+      throw new Error(error.message || 'Failed to update API key.');
     },
   });
 
@@ -1215,7 +1156,6 @@ export const useUpdateAPIKeyMutation = () => {
   };
 };
 
-
 export const useDeleteAPIKeysMutation = () => {
   const queryClient = useQueryClient();
 
@@ -1225,7 +1165,7 @@ export const useDeleteAPIKeysMutation = () => {
     isError,
     error,
   } = useMutation({
-    mutationFn: deleteAPIKeys, // Ensure this function accepts a single key ID
+    mutationFn: deleteAPIKeys,
     onMutate: async (keyId) => {
       await queryClient.cancelQueries(['apiKeys']);
       const previousKeys = queryClient.getQueryData(['apiKeys']);
@@ -1251,7 +1191,6 @@ export const useDeleteAPIKeysMutation = () => {
   return { deleteAPIKeyMutate, isDeleting, isError, error };
 };
 
-//Admin registration
 export const registerUser = async (user) => {
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/register`, {
     method: 'POST',
@@ -1268,7 +1207,6 @@ export const registerUser = async (user) => {
   return response.json();
 };
 
-// Admin Login
 export const loginUser = async (user) => {
   try {
     const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/login`, {
@@ -1292,8 +1230,6 @@ export const loginUser = async (user) => {
   }
 };
 
-
-// Request Password reset
 export const requestPasswordReset = async (email) => {
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/request_password_reset`, {
     method: 'POST',
@@ -1312,7 +1248,6 @@ export const requestPasswordReset = async (email) => {
   return response.json();
 };
 
-// Reset password
 export const resetPassword = async (values) => {
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/reset_password`, {
     method: 'POST',
@@ -1331,16 +1266,16 @@ export const resetPassword = async (values) => {
   return response.json();
 };
 
-
-// Projects management features
 export const fetchProjects = async () => {
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/projects`, {
-    method: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/projects-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
   
   if (!response.ok) {
@@ -1414,23 +1349,23 @@ export const useDeleteProjectMutation = () => {
 
   const { mutate: deleteProjectMutate, isLoading: isDeleting, isError, error } = useMutation({
     mutationFn: deleteProject,
-    onSuccess: async() => {
+    onSuccess: async () => {
       queryClient.invalidateQueries(['projects']);
       queryClient.invalidateQueries(['teamMembers']);
 
       const projects_response = await fetchProjects(); 
-       if (!projects_response.success) {
-         throw new Error(projects_response.error || 'Failed to fetch projects');
-       }
+      if (!projects_response.success) {
+        throw new Error(projects_response.error || 'Failed to fetch projects');
+      }
 
-       queryClient.setQueryData(['projects'], processProjects(projects_response.projects));
+      queryClient.setQueryData(['projects'], processProjects(projects_response.projects));
 
-       const team_response = await fetchTeam(); 
-       if (!team_response.success) {
-         throw new Error('Failed to fetch team');
-       }
+      const team_response = await fetchTeam(); 
+      if (!team_response.success) {
+        throw new Error('Failed to fetch team');
+      }
 
-       queryClient.setQueryData(['teamMembers'], processTeamMembers(team_response.data));
+      queryClient.setQueryData(['teamMembers'], processTeamMembers(team_response.data));
     },
     onError: (error) => {
       throw new Error(error.message, 'Failed to delete project.');
@@ -1444,9 +1379,7 @@ export const useDeleteProjectMutation = () => {
     error
   };
 };
-// End of project management features
 
-// Google Oauth features
 export const checkInternetConnection = () => {
   return new Promise((resolve) => {
     let timeout = setTimeout(() => resolve(false), 3000);
@@ -1463,7 +1396,7 @@ export const checkInternetConnection = () => {
   });
 };
 
-export const googleOAuth = async(accessToken) => {
+export const googleOAuth = async (accessToken) => {
   const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/api/auth/google`, {
     method: 'POST',
     headers: {
@@ -1477,8 +1410,7 @@ export const googleOAuth = async(accessToken) => {
     throw new Error(errorData.error || 'Failed to authenticate with Google!');
   }
   return response.json();
-}
-// End of Google Oauth features
+};
 
 export const useUserData = () => {
   const csrfToken = retrieveCsrfToken();
@@ -1489,7 +1421,6 @@ export const useUserData = () => {
     queryFn: async () => {
       let storedData = queryClient.getQueryData(['userData']) || { name: "", email: "", avatarUrl: null };
 
-      // If essential details are missing, fetch from API
       if (!storedData.name || !storedData.email) {
         try {
           const apiData = await fetchUser();
@@ -1503,7 +1434,6 @@ export const useUserData = () => {
         }
       }
 
-      // Fetch avatar if missing
       if (!storedData.avatarUrl) {
         try {
           const avatarUrl = await fetchImage('avatar');
@@ -1515,7 +1445,7 @@ export const useUserData = () => {
 
       return storedData;
     },
-    enabled: true, // Runs automatically on mount
+    enabled: true,
   });
 
   const setUserData = (newData) => {
@@ -1526,8 +1456,7 @@ export const useUserData = () => {
 
   const clearUserData = () => {
     queryClient.setQueryData(['userData'], []);
-  }
-
+  };
 
   const setName = (name) => setUserData({ name });
   const setEmail = (email) => setUserData({ email });
@@ -1562,15 +1491,16 @@ export const useUserData = () => {
   };
 };
 
-
 export const fetchUser = async () => {
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/user`, {
-    method: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/user-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
-      'X-CSRF-Token': csrfToken
+      'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
 
   if (!response.ok) {
@@ -1626,13 +1556,10 @@ export const changeUserPassword = async (currentPassword, newPassword, confirmPa
   return await response.json();
 };
 
-
-
-
 export const uploadImage = async (file, category) => {
   const formData = new FormData();
   formData.append('image', file);
-  formData.append('category', category); // 'avatar' or 'logo'
+  formData.append('category', category);
 
   const csrfToken = retrieveCsrfToken();
 
@@ -1649,25 +1576,25 @@ export const uploadImage = async (file, category) => {
     throw new Error(errorData.error || 'Failed to upload image');
   }
 
-  // Convert the file to a data URL
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result); // reader.result is the Data URL
+    reader.onloadend = () => resolve(reader.result);
     reader.onerror = reject;
-    reader.readAsDataURL(file); // Convert file to data URL
+    reader.readAsDataURL(file);
   });
 };
-
 
 export const fetchImage = async (category) => {
   const csrfToken = retrieveCsrfToken();
 
   try {
-    const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/images/${category}`, {
-      method: 'GET',
+    const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/images-fetch/${category}`, { // Changed URL
+      method: 'POST', // Changed to POST
       headers: {
         'X-CSRF-Token': csrfToken,
+        'Content-Type': 'application/json'
       },
+      body: JSON.stringify({}) // Empty body
     });
 
     if (!response.ok) {
@@ -1675,27 +1602,23 @@ export const fetchImage = async (category) => {
       throw new Error(errorData.error || 'Failed to fetch image');
     }
 
-   // Convert the response to a Blob
-   const blob = await response.blob();
-
-   // Convert Blob to Base64 Data URL
-   return new Promise((resolve, reject) => {
-     const reader = new FileReader();
-     reader.onloadend = () => resolve(reader.result); // Resolve with base64 data URL
-     reader.onerror = reject;
-     reader.readAsDataURL(blob);
-   });
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
 
   } catch (error) {
-      throw new Error('Failed to fetch image');
+    throw new Error('Failed to fetch image');
   }
 };
-
 
 export const uploadPdf = async (file, category) => {
   const formData = new FormData();
   formData.append('pdf', file);
-  formData.append('category', category); // e.g., 'about'
+  formData.append('category', category);
 
   const csrfToken = retrieveCsrfToken();
 
@@ -1721,24 +1644,24 @@ export const fetchPdf = async (category) => {
   const csrfToken = retrieveCsrfToken();
 
   try {
-    const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/pdfs/${category}`, {
-      method: 'GET',
+    const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/pdfs-fetch/${category}`, { // Changed URL
+      method: 'POST', // Changed to POST
       headers: {
         'X-CSRF-Token': csrfToken,
+        'Content-Type': 'application/json'
       },
+      body: JSON.stringify({}) // Empty body
     });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch PDF for category: ${category}`);
     }
 
-    return await response.blob(); // Return PDF as a Blob
+    return await response.blob();
   } catch (error) {
     return null;
   }
 };
-
-// Subscription API Functions
 
 export const initiateCheckout = async (tier) => {
   const csrfToken = retrieveCsrfToken();
@@ -1756,12 +1679,14 @@ export const initiateCheckout = async (tier) => {
 
 export const fetchSubscriptionStatus = async () => {
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/subscriptions/status`, {
-    method: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/subscriptions/status-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
       'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
   return response.json();
 };
@@ -1793,26 +1718,25 @@ export const updatePaymentMethod = async () => {
   const data = await response.json();
   
   if (response.ok && data.sessionUrl) {
-    window.location.href = data.sessionUrl; // Redirect to Stripe's billing portal
+    window.location.href = data.sessionUrl;
   } else {
     throw new Error(data.error || 'Failed to retrieve billing portal URL.');
   }
 };
 
-
 export const fetchPermissions = async () => {
   const csrfToken = retrieveCsrfToken();
-  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/subscriptions/permissions`, {
-    method: 'GET',
+  const response = await secureFetch(`${process.env.REACT_APP_API_BASE_URL}/subscriptions/permissions-fetch`, { // Changed URL
+    method: 'POST', // Changed to POST
     headers: {
       'X-CSRF-Token': csrfToken,
+      'Content-Type': 'application/json'
     },
     credentials: 'include',
+    body: JSON.stringify({}) // Empty body
   });
   return response.json();
 };
-
-// Subscription Query Hooks
 
 const formatTimeRemaining = (seconds) => {
   if (seconds <= 0) return '0 minutes';
@@ -1848,8 +1772,6 @@ export const useSubscriptionStatus = () => {
   };
 };
 
-
-
 export const usePermissions = () => {
   const queryClient = useQueryClient();
   const { data: permissions, isLoading, isError, error, refetch } = useQuery({
@@ -1861,8 +1783,6 @@ export const usePermissions = () => {
   return { permissions, isLoading, isError, error, refetch };
 };
 
-// Subscription Mutation Hooks
-
 export const useInitiateCheckoutMutation = () => {
   const queryClient = useQueryClient();
   const {
@@ -1873,7 +1793,6 @@ export const useInitiateCheckoutMutation = () => {
   } = useMutation({
     mutationFn: initiateCheckout,
     onSuccess: (data) => {
-      // Redirect to Stripe checkout URL
       window.location.href = data.sessionUrl;
     },
     onError: (error) => {
