@@ -42,7 +42,7 @@ const secureFetch = async (url, options = {}) => {
   });
 
   if (response.status === 403) {
-    deleteCSRFToken();
+    //deleteCSRFToken();
     window.location.href = process.env.REACT_APP_SIGNIN_ROUTE;
     return; // Prevent further execution
   }
